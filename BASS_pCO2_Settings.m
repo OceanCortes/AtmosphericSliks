@@ -43,5 +43,5 @@ function S = BASS_pCO2_Settings()
     S.covCoast = 0.30;
 
     % ---------------- Output ----------------
-    S.tableCsv = 'Table1_recalculated.csv';
+    S.tableXlsx = 'Table1_recalculated.xlsx';   % Table 1 (Excel); '' = do not write
 end

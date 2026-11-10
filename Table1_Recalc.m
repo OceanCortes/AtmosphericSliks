@@ -23,7 +23,9 @@ function R = Table1_Recalc(S)
 %        F = f * daily dpCO2 and SD(F) = f * SD(dpCO2).
 %     7. SE of daily dpCO2 = SD / sqrt(n_eff), n_eff = n(1-r1)/(1+r1)
 %        (lag-1 autocorrelation r1 of the binned series, Methods 2.2).
-%     8. D% = |mean_slick(F_NS - F_MS)| / |mean_slick(F_NS)| * 100
+%     8. Table 1 is displayed in the Command Window and written to
+%        S.tableXlsx (sheets: Table1, Numeric, Settings).
+%     9. D% = |mean_slick(F_NS - F_MS)| / |mean_slick(F_NS)| * 100
 %        (independent of k and K0), scaled by slick coverage.
 %
 %   Sign: dpCO2 = pCO2(water) - pCO2(air); positive = sea-to-air flux.
@@ -108,7 +110,11 @@ function R = Table1_Recalc(S)
     R.U_NS = 2*sqrt(2*S.u_glaucus^2 + sigNS^2);
 
     printTable(R, S);
-    if ~isempty(S.tableCsv), writeCsv(R, S); end
+    T1 = buildTable1(R, S);
+    R.Table1 = T1;
+    fprintf('\n===== TABLE 1 (manuscript layout) =====\n');
+    disp(T1);
+    if ~isempty(S.tableXlsx), writeTable1Excel(R, S, T1); end
 end
 
 % =====================================================================
@@ -167,15 +173,57 @@ function printTable(R, S)
         max(abs((R.Sea - R.Air) - R.dMS)), max(abs((R.NSL - R.NSA) - R.dNS)));
 end
 
-function writeCsv(R, S)
+function T1 = buildTable1(R, S)
+% Table 1 in the manuscript layout, as text (pCO2 and F: mean ± SD;
+% dpCO2: mean ± SE with n_eff).
+    pm  = @(m, e) reshape(cellstr(compose('%.1f ± %.1f', [m; e].')), 1, []);
+    one = @(m)    reshape(cellstr(compose('%.1f', m.')), 1, []);
+    C = {
+        'pCO2',     'Air 100 cm',   pm(R.Air, R.Air_sd),  'µatm'
+        'pCO2',     'NSA 20 cm',    pm(R.NSA, R.NSA_sd),  'µatm'
+        'pCO2',     'NSL 20 cm',    pm(R.NSL, R.NSL_sd),  'µatm'
+        'pCO2',     'Sea 100 cm',   pm(R.Sea, R.Sea_sd),  'µatm'
+        'ΔpCO2',    'Meter-scale',  pm(R.dMS, R.dMS_se),  'µatm'
+        'ΔpCO2',    'Near-surface', pm(R.dNS, R.dNS_se),  'µatm'
+        'ΔpCO2',    'Approach gap', one(R.gap_dpCO2),     'µatm'
+        'CO2 flux', 'Meter-scale',  pm(R.FMS, R.FMS_sd),  'mmol m-2 d-1'
+        'CO2 flux', 'Near-surface', pm(R.FNS, R.FNS_sd),  'mmol m-2 d-1'
+        'CO2 flux', 'Approach gap', one(R.gap_F),         'mmol m-2 d-1'
+        'D%',       'Per day',      one(R.Dpct_day),      '%'
+        };
+    body = [C(:,1:2), vertcat(C{:,3}), C(:,4)];
+    lab  = matlab.lang.makeValidName(cellstr(datestr(S.days, 'dd_mmm'))).';
+    T1 = cell2table(body, 'VariableNames', [{'Section','Variable'}, lab, {'Units'}]);
+end
+
+function writeTable1Excel(R, S, T1)
+% Excel file with the formatted table, the numeric values and the settings.
+    f = S.tableXlsx;
+    if isfile(f), delete(f); end
+    writetable(T1, f, 'Sheet', 'Table1');
+
     lab = matlab.lang.makeValidName(cellstr(datestr(S.days, 'dd_mmm'))).';
-    rows = {'Air100','NSA20','NSL20','Sea100','dpCO2_MS','dpCO2_NS','dpCO2_gap', ...
-            'F_MS','F_NS','F_gap','Dpct','nBins_MS','nBins_NS'};
-    nD = numel(S.days);
-    M  = [R.Air; R.NSA; R.NSL; R.Sea; R.dMS; R.dNS; R.gap_dpCO2; R.FMS; R.FNS; R.gap_F; R.Dpct_day; R.nMS; R.nNS];
-    E  = [R.Air_sd; R.NSA_sd; R.NSL_sd; R.Sea_sd; R.dMS_se; R.dNS_se; nan(1,nD); ...
-          R.FMS_sd; R.FNS_sd; nan(4,nD)];
-    T = array2table([M E], 'RowNames', rows, 'VariableNames', [strcat('mean_', lab), strcat('sd_or_se_', lab)]);
-    writetable(T, S.tableCsv, 'WriteRowNames', true);
-    fprintf('Table written to %s (pCO2 and F: SD; dpCO2: SE with n_eff)\n', S.tableCsv);
+    rows = {'Air100';'Air100_SD';'NSA20';'NSA20_SD';'NSL20';'NSL20_SD';'Sea100';'Sea100_SD'; ...
+            'dpCO2_MS';'dpCO2_MS_SD';'dpCO2_MS_SE';'dpCO2_NS';'dpCO2_NS_SD';'dpCO2_NS_SE';'dpCO2_gap'; ...
+            'F_MS';'F_MS_SD';'F_NS';'F_NS_SD';'F_gap';'Dpct'; ...
+            'nBins_MS';'neff_MS';'nBins_NS';'neff_NS'};
+    M = [R.Air; R.Air_sd; R.NSA; R.NSA_sd; R.NSL; R.NSL_sd; R.Sea; R.Sea_sd; ...
+         R.dMS; R.dMS_sd; R.dMS_se; R.dNS; R.dNS_sd; R.dNS_se; R.gap_dpCO2; ...
+         R.FMS; R.FMS_sd; R.FNS; R.FNS_sd; R.gap_F; R.Dpct_day; ...
+         R.nMS; R.neffMS; R.nNS; R.neffNS];
+    Tn = [table(rows, 'VariableNames', {'Variable'}), array2table(M, 'VariableNames', lab)];
+    writetable(Tn, f, 'Sheet', 'Numeric');
+
+    names = {'Sea100 sensor';'k [cm h-1]';'K0 [mol m-3 atm-1]';'f = k*K0 [mmol m-2 d-1 uatm-1]'; ...
+             'Bin width [min]';'Max Air-Sea pairing distance [min]';'Time zone'; ...
+             'D% slick days';'D% open ocean (x coverage)';'D% coastal (x coverage)'; ...
+             'pCO2 and flux uncertainty';'dpCO2 uncertainty';'Sign convention'};
+    vals  = {S.sea100; S.k_cmh; R.K0; R.f; minutes(S.binWidth); minutes(S.maxAirGap); S.timeZone; ...
+             R.Dpct_slick; R.Dpct_open; R.Dpct_coast; ...
+             '± 1 SD of 1.5-min bins (temporal variability)'; ...
+             '± SE = SD/sqrt(n_eff), n_eff = n(1-r1)/(1+r1)'; ...
+             'dpCO2 = pCO2(water) - pCO2(air); positive = sea-to-air'};
+    vals = cellfun(@(v) string(v), vals, 'UniformOutput', false);
+    writetable(table(names, vertcat(vals{:}), 'VariableNames', {'Setting','Value'}), f, 'Sheet', 'Settings');
+    fprintf('Table 1 written to %s (sheets: Table1, Numeric, Settings)\n', f);
 end

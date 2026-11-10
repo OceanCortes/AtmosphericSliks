@@ -124,7 +124,8 @@ FILES
 --------------------------------------------------------------------------------
   NearSurface_pCO2_Study.m      MAIN SCRIPT (run this)
   BASS_pCO2_Settings.m          all constants and processing choices
-  Table1_Recalc.m               Table 1 + consistency checks -> Table1_recalculated.csv
+  Table1_Recalc.m               Table 1: prints it in the Command Window and
+                                writes Table1_recalculated.xlsx
   Fig1abcd_TimeSeries_v1.m      Figure 2 a-d   (time series, times in UTC)
   Fig2_DailyProfiles_v1.m       Figure 3 a-b   (daily profiles = Table 1 values)
   Fig1e_MeanDifferenceProfile_NonSlick_vs_Slick_v1.m
@@ -138,6 +139,11 @@ FILES
   Glaucus_pCO2_DataBase_v2.xlsx GLAUCUS ATLANTICUS data (Time, pCO2_m20_G,
                                 pCO2_p20_G, pCO2_p50_G, pCO2_p80_G, pCO2_p100_G; uatm)
   Sniffle_pCO2_DataBase_v2.xlsx SNIFFLE data (Time, pCO2_p100_S, pCO2_m100_S; uatm)
+  Table1_recalculated.xlsx      Table 1 written by the main script. Sheets:
+                                  Table1   - manuscript layout (mean ± SD / ± SE, units)
+                                  Numeric  - all values as numbers (means, SD, SE,
+                                             n bins, n_eff, D%)
+                                  Settings - k, K0, f, Sea100 sensor, bins, D% scaling
   pCO2_GlauSniff.xlsx           merged table written by the main script
                                 (60-s tolerance, no gap filling); used only
                                 for Figure 2 and the explorer
@@ -153,6 +159,12 @@ MATLAB R2021a or later, core MATLAB only (no toolboxes).
 Put all files in one folder and run:
 
      >> NearSurface_pCO2_Study
+
+The Command Window then shows Table 1 twice: a compact numeric listing
+with the consistency checks, and the manuscript layout (MATLAB table,
+also stored in R.Table1). The same table is written to
+Table1_recalculated.xlsx (change the name in S.tableXlsx; '' = no file).
+To compute only the table:  >> R = Table1_Recalc();
 
 To change a constant (e.g. k from the SNIFFLE chamber, or K0 from measured
 T and S), edit BASS_pCO2_Settings.m only:
