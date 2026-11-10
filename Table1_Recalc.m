@@ -112,8 +112,7 @@ function R = Table1_Recalc(S)
     printTable(R, S);
     T1 = buildTable1(R, S);
     R.Table1 = T1;
-    fprintf('\n===== TABLE 1 (manuscript layout) =====\n');
-    disp(T1);
+    showTable1(T1, R, S);
     if ~isempty(S.tableXlsx), writeTable1Excel(R, S, T1); end
 end
 
@@ -149,7 +148,7 @@ end
 
 function printTable(R, S)
     lab = cellstr(datestr(S.days, 'dd mmm'));
-    fprintf('\n===== TABLE 1 (recalculated) =====\n');
+    fprintf('\n===== Detailed results and consistency checks =====\n');
     fprintf('Sea100 = %s | k = %.1f cm h-1 | K0 = %.1f mol m-3 atm-1 | f = k*K0 = %.4f mmol m-2 d-1 uatm-1\n', ...
         S.sea100, S.k_cmh, R.K0, R.f);
     fprintf('%-26s%s\n', '', sprintf('%16s', lab{:}));
@@ -174,33 +173,71 @@ function printTable(R, S)
 end
 
 function T1 = buildTable1(R, S)
-% Table 1 in the manuscript layout, as text (pCO2 and F: mean ± SD;
-% dpCO2: mean ± SE with n_eff).
-    pm  = @(m, e) reshape(cellstr(compose('%.1f ± %.1f', [m; e].')), 1, []);
-    one = @(m)    reshape(cellstr(compose('%.1f', m.')), 1, []);
-    C = {
-        'pCO2',     'Air 100 cm',   pm(R.Air, R.Air_sd),  'µatm'
-        'pCO2',     'NSA 20 cm',    pm(R.NSA, R.NSA_sd),  'µatm'
-        'pCO2',     'NSL 20 cm',    pm(R.NSL, R.NSL_sd),  'µatm'
-        'pCO2',     'Sea 100 cm',   pm(R.Sea, R.Sea_sd),  'µatm'
-        'ΔpCO2',    'Meter-scale',  pm(R.dMS, R.dMS_se),  'µatm'
-        'ΔpCO2',    'Near-surface', pm(R.dNS, R.dNS_se),  'µatm'
-        'ΔpCO2',    'Approach gap', one(R.gap_dpCO2),     'µatm'
-        'CO2 flux', 'Meter-scale',  pm(R.FMS, R.FMS_sd),  'mmol m-2 d-1'
-        'CO2 flux', 'Near-surface', pm(R.FNS, R.FNS_sd),  'mmol m-2 d-1'
-        'CO2 flux', 'Approach gap', one(R.gap_F),         'mmol m-2 d-1'
-        'D%',       'Per day',      one(R.Dpct_day),      '%'
-        };
-    body = [C(:,1:2), vertcat(C{:,3}), C(:,4)];
-    lab  = matlab.lang.makeValidName(cellstr(datestr(S.days, 'dd_mmm'))).';
-    T1 = cell2table(body, 'VariableNames', [{'Section','Variable'}, lab, {'Units'}]);
+% Table 1 exactly in the manuscript layout (16 rows x 6 columns, as text):
+%   row 1      : scenario header
+%   rows 2-6   : pCO2 (mean ±SD)          [µatm]
+%   rows 8-11  : ΔpCO2 (mean)             [µatm]
+%   rows 13-16 : CO2 flux (mean ± SD)     [mmol m⁻² d⁻¹]
+% Negative numbers use the typographic minus sign (−), as in the manuscript.
+% Approach gap = absolute difference between the two approaches.
+    mns  = char(8722);                                   % '−'
+    num  = @(x) strrep(sprintf('%.1f', x), '-', mns);
+    pCO2 = @(m, e) arrayfun(@(a, b) [num(a) ' ±' num(b)],  m, e, 'UniformOutput', false);
+    flux = @(m, e) arrayfun(@(a, b) [num(a) ' ± ' num(b)], m, e, 'UniformOutput', false);
+    one  = @(m)    arrayfun(@(a) num(a), m, 'UniformOutput', false);
+
+    nD   = numel(S.days);
+    scen = repmat({'Non-slick Scenario'}, 1, nD);
+    scen(S.isSlick) = {'Slick-Scenario'};
+    dlab = cellstr(datestr(S.days, 'dd mmmm')).';
+    dlab = regexprep(dlab, '^0', '');                    % '18 July'
+    e    = repmat({''}, 1, nD);
+    uP   = '[µatm]';
+    uF   = ['[mmol m' char(8315) char(178) ' d' char(8315) char(185) ']'];   % [mmol m⁻² d⁻¹]
+
+    T1 = [
+        {''},              scen,                     {''}
+        {'pCO2'},          dlab,                     {'Units'}
+        {'Air 100 cm'},    pCO2(R.Air, R.Air_sd),    {uP}
+        {'NSA 20 cm'},     pCO2(R.NSA, R.NSA_sd),    {uP}
+        {'NSL 20 cm'},     pCO2(R.NSL, R.NSL_sd),    {uP}
+        {'Sea 100 cm'},    pCO2(R.Sea, R.Sea_sd),    {uP}
+        {''},              e,                        {''}
+        {[char(916) 'pCO2']}, e,                     {'Units'}
+        {'Meter-scale'},   one(R.dMS),               {uP}
+        {'Near-surface'},  one(R.dNS),               {uP}
+        {'Approach gap'},  one(R.gap_dpCO2),         {uP}
+        {''},              e,                        {''}
+        {'CO2 Flux'},      e,                        {'Units'}
+        {'Meter-scale'},   flux(R.FMS, R.FMS_sd),    {uF}
+        {'Near-surface'},  flux(R.FNS, R.FNS_sd),    {uF}
+        {'Approach gap'},  one(R.gap_F),             {uF}
+        ];
+end
+
+function showTable1(T1, R, S)
+% Print Table 1 in the Command Window with the manuscript layout.
+    w = [14, repmat(14, 1, size(T1,2) - 2), 16];
+    line = repmat('-', 1, sum(w) + 2*(numel(w) - 1));
+    fprintf('\n%s\n', line);
+    fprintf('TABLE 1  (Sea100: %s; k = %.1f cm h-1; K0 = %.1f mol m-3 atm-1)\n', S.sea100, S.k_cmh, R.K0);
+    fprintf('%s\n', line);
+    for r = 1:size(T1, 1)
+        if r == 7 || r == 12, fprintf('%s\n', line); continue; end
+        c = T1(r, :);
+        fprintf('%-*s', w(1), c{1});
+        for k = 2:numel(c) - 1, fprintf('  %*s', w(k), c{k}); end
+        fprintf('  %-*s\n', w(end), c{end});
+        if r == 2, fprintf('%s\n', line); end
+    end
+    fprintf('%s\n', line);
 end
 
 function writeTable1Excel(R, S, T1)
 % Excel file with the formatted table, the numeric values and the settings.
     f = S.tableXlsx;
     if isfile(f), delete(f); end
-    writetable(T1, f, 'Sheet', 'Table1');
+    writecell(T1, f, 'Sheet', 'Table1');      % same 16 x 6 layout as the manuscript
 
     lab = matlab.lang.makeValidName(cellstr(datestr(S.days, 'dd_mmm'))).';
     rows = {'Air100';'Air100_SD';'NSA20';'NSA20_SD';'NSL20';'NSL20_SD';'Sea100';'Sea100_SD'; ...

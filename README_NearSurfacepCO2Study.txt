@@ -140,7 +140,10 @@ FILES
                                 pCO2_p20_G, pCO2_p50_G, pCO2_p80_G, pCO2_p100_G; uatm)
   Sniffle_pCO2_DataBase_v2.xlsx SNIFFLE data (Time, pCO2_p100_S, pCO2_m100_S; uatm)
   Table1_recalculated.xlsx      Table 1 written by the main script. Sheets:
-                                  Table1   - manuscript layout (mean ± SD / ± SE, units)
+                                  Table1   - EXACT manuscript layout of Table 1 (16 x 6:
+                                             scenario header; pCO2 mean ±SD; dpCO2 mean;
+                                             CO2 flux mean ± SD; approach gaps; units;
+                                             typographic minus sign)
                                   Numeric  - all values as numbers (means, SD, SE,
                                              n bins, n_eff, D%)
                                   Settings - k, K0, f, Sea100 sensor, bins, D% scaling
@@ -160,9 +163,9 @@ Put all files in one folder and run:
 
      >> NearSurface_pCO2_Study
 
-The Command Window then shows Table 1 twice: a compact numeric listing
-with the consistency checks, and the manuscript layout (MATLAB table,
-also stored in R.Table1). The same table is written to
+The Command Window then shows (1) the detailed results with SE, n_eff and
+the consistency checks, and (2) Table 1 in the exact manuscript layout
+(also returned as the 16 x 6 cell array R.Table1). The same table is written to
 Table1_recalculated.xlsx (change the name in S.tableXlsx; '' = no file).
 To compute only the table:  >> R = Table1_Recalc();
 
