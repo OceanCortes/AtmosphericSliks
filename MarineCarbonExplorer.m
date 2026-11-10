@@ -8,7 +8,7 @@ function MarineCarbonExplorer()
 %        § Two ΔpCO2 approaches  (Meter-scale ±100 cm | Near-surface ±20 cm)
 %        § CO2 Flux Bias = F_NearSurface − F_MeterScale
 %        § F = k · K0 · ΔpCO2   (Wanninkhof 2014)
-%        § k = 36 cm h⁻¹ (constant, slick/low-wind representative)
+%        § k = 15.7 cm h⁻¹ (constant; Methods 2.3 — same as BASS_pCO2_Settings)
 %        § K0 = 33 mol m⁻³ atm⁻¹ (Weiss 1974, N.Sea summer)
 %        § Bin: 1.5-minute aggregation
 %
@@ -25,22 +25,25 @@ clc;
 %% ════════════════════════════════════════════════════
 % ── The script searches these filenames in order (same folder as this .m file).
 % ── If none is found it opens a file-browser dialog automatically.
+% ── Needs ONE file holding all four levels: use the merged file written by
+% ── NearSurface_pCO2_Study.m (pCO2_GlauSniff.xlsx, 60-s tolerance, no gap filling).
+% ── For the published numbers use Table1_Recalc.m; this explorer is for browsing.
 DATA_FILE = mce_findFile({ ...
-    'Glaucus_pCO2_DataBase_v2.xlsx', ...
-    'Sniffle_pCO2_DataBase_v2.xlsx'});
+    'pCO2_GlauSniff.xlsx'});
 
 %  Physical constants (MS2 §2.4 — kept constant to isolate ΔpCO2 effect)
-k_cmhr   = 36;    % gas transfer velocity [cm h⁻¹]
+k_cmhr   = 15.7;  % gas transfer velocity [cm h⁻¹] (Methods 2.3)
 K0_const = 33;    % CO2 solubility  [mol m⁻³ atm⁻¹]
 BIN_SEC  = 90;    % 1.5-minute aggregation bins [s]
 
 % Force exact column names (set true if auto-detection fails)
 FORCE = false;
-FRC.time   = 'Date_Time';
-FRC.air100 = 'pCO2_p100_S';   % Air 100 cm — Sniffle
-FRC.nsa20  = 'pCO2_p20_G';    % NSA  20 cm — Glaucus  (Atmospheric Slick zone)
-FRC.nsl20  = 'pCO2_m20_G';    % NSL  20 cm — Glaucus  (Near-surface ocean)
-FRC.sea100 = 'pCO2_m100_S';   % Sea 100 cm — Sniffle
+% Sign convention of the column names: m = above the surface (air), p = below (water)
+FRC.time   = 'Time';
+FRC.air100 = 'pCO2_ATM';      % Air 100 cm — Sniffle   (raw: pCO2_m100_S)
+FRC.nsa20  = 'pCO2_NSA';      % NSA  20 cm — Glaucus   (raw: pCO2_m20_G)
+FRC.nsl20  = 'pCO2_NSL';      % NSL  20 cm — Glaucus   (raw: pCO2_p20_G)
+FRC.sea100 = 'pCO2_OCN_S';    % Sea 100 cm — Sniffle   (raw: pCO2_p100_S)
 FRC.u10    = 'Wind_U10';       % Wind speed at 10 m [m s⁻¹]
 FRC.phSML  = 'pH_00_G';        % pH SML
 FRC.phULW  = 'pH_m20_G';       % pH ULW
@@ -53,10 +56,11 @@ FRC.phULW  = 'pH_m20_G';       % pH ULW
 if FORCE
     col = FRC;
 else
-    col.air100 = mce_pick(vn,{'pCO2_p100_S','pCO2_p100_s','Air100','pCO2_air100','pCO2_p100','pCO2_atm'});
-    col.nsa20  = mce_pick(vn,{'pCO2_p20_G','pCO2_p20_g','NSA20','pCO2_nsa20','pCO2_p20','pCO2_p0.2'});
-    col.nsl20  = mce_pick(vn,{'pCO2_m20_G','pCO2_m20_g','NSL20','pCO2_nsl20','pCO2_m20','pCO2_m0.2'});
-    col.sea100 = mce_pick(vn,{'pCO2_m100_S','pCO2_m100_s','Sea100','pCO2_sea100','pCO2_m100','pCO2_water'});
+    % m = above the surface (air), p = below (water) — see README
+    col.air100 = mce_pick(vn,{'pCO2_ATM','pCO2_m100_S','Air100','pCO2_air100','pCO2_m100'});
+    col.nsa20  = mce_pick(vn,{'pCO2_NSA','pCO2_m20_G','NSA20','pCO2_nsa20','pCO2_m20'});
+    col.nsl20  = mce_pick(vn,{'pCO2_NSL','pCO2_p20_G','NSL20','pCO2_nsl20','pCO2_p20'});
+    col.sea100 = mce_pick(vn,{'pCO2_OCN_S','pCO2_p100_S','Sea100','pCO2_sea100','pCO2_p100'});
     col.u10    = mce_pick(vn,{'Wind_U10','U10','wind_u10','WindSpeed','WS10'});
     col.phSML  = mce_pick(vn,{'pH_00_G','pH_00','pH_SML','pHSML'});
     col.phULW  = mce_pick(vn,{'pH_m20_G','pH_m20','pH_ULW','pHULW','pH_40cm'});

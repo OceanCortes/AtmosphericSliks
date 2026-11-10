@@ -1,110 +1,61 @@
-function Fig1abcd_TimeSeries_v1(T, day18, day19, day27, day29)
-% Fig1_TimeSeries_v1
-% Same as v2, but:
-%   - uniform font (Calibri or fallback)
-%   - custom legend with sea surface divider
+function Fig1abcd_TimeSeries_v1(T, S)
+%FIG1ABCD_TIMESERIES_V1  Manuscript Figure 2 (a-d): pCO2 time series at the
+%four levels on each day.
+%
+%   Fig1abcd_TimeSeries_v1(T, S)
+%     T : merged table from NearSurface_pCO2_Study (60-s tolerance, NO gap
+%         filling, so no flat segments)
+%     S : BASS_pCO2_Settings()
+%
+%   GLAUCUS levels (NSA20, NSL20) are continuous lines (1 Hz). SNIFFLE
+%   measures air and water ALTERNATELY with one detector (~2.5-min air
+%   periods between ~7-17-min water periods), so Air100 (and Sea100 when
+%   taken from SNIFFLE) are drawn as points: the gaps are real, not
+%   missing data.
 
-    arguments
-        T table
-        day18 datetime
-        day19 datetime
-        day27 datetime
-        day29 datetime
-    end
+    C.ATM = [0.5 0.5 0.5];
+    C.NSA = [0 0 0];
+    C.NSL = [0 0.75 0.75];
+    C.OCN = [0.10 0.30 0.65];
 
-    % ---------------- Global font ----------------
-    if any(strcmp(listfonts, 'Calibri'))
-        set(groot, 'defaultAxesFontName', 'Calibri');
-        set(groot, 'defaultTextFontName', 'Calibri');
-    else
-        set(groot, 'defaultAxesFontName', 'Arial');
-        set(groot, 'defaultTextFontName', 'Arial');
-    end
+    if strcmpi(S.sea100, 'sniffle'), seaCol = 'pCO2_OCN_S'; else, seaCol = 'pCO2_OCN_G'; end
 
-    % Colours (RGB)
-    C.ATM = [0.5 0.5 0.5];        
-    C.NSA = [0 0 0];              
-    C.NSL = [0 0.75 0.75];        
-    C.OCN = [0.10 0.30 0.65];     
+    figure('Color','w','Name','Figure 2 - pCO2 time series');
+    tl = tiledlayout(2, 2, 'TileSpacing','compact', 'Padding','compact');
+    order = [find(~S.isSlick), find(S.isSlick)];     % columns: non-slick | slick
+    tileOf = [1 3 2 4];
+    letters = 'acbd';
+    yAll = [T.pCO2_ATM; T.pCO2_NSA; T.pCO2_NSL; T.(seaCol)];
+    yl = [floor(min(yAll(isfinite(yAll)))/10)*10, ceil(max(yAll(isfinite(yAll)))/10)*10];
 
-    figure('Color','w');
+    for j = 1:numel(order)
+        i  = order(j);
+        ax = nexttile(tl, tileOf(j)); hold(ax,'on'); box(ax,'on');
+        d0 = dateshift(S.days(i),'start','day');
+        m  = T.Time >= d0 & T.Time < d0 + days(1);
+        tt = T.Time(m);
 
-    % --- Panel 1: 18 (Non-slick) ---
-    ax1 = subplot(2,2,1); hold on; box on;
-    local_plotOneDayTimeseries(ax1, T, day18, C);
-    title('Non-slick Scenarios');
-    ylabel('{\it p}CO_2 [\muatm]');
-    ylim([385 565]);
-    grid off
+        h1 = plot(ax, tt, T.pCO2_ATM(m), '.', 'Color', C.ATM, 'MarkerSize', 4);
+        h2 = plot(ax, tt, T.pCO2_NSA(m), '-', 'Color', C.NSA, 'LineWidth', 1.0);
+        h3 = plot(ax, tt, T.pCO2_NSL(m), '-', 'Color', C.NSL, 'LineWidth', 1.0);
+        if strcmpi(S.sea100, 'sniffle')
+            h4 = plot(ax, tt, T.(seaCol)(m), '.', 'Color', C.OCN, 'MarkerSize', 4);
+        else
+            h4 = plot(ax, tt, T.(seaCol)(m), '-', 'Color', C.OCN, 'LineWidth', 1.0);
+        end
 
-    % --- Panel 3: 19 (Non-slick) ---
-    ax3 = subplot(2,2,3); hold on; box on;
-    local_plotOneDayTimeseries(ax3, T, day19, C);
-    ylabel('{\it p}CO_2 [\muatm]');
-    ylim([385 565]);
-    grid off
-
-    % --- Panel 2: 27 (Slick) ---
-    ax2 = subplot(2,2,2); hold on; box on;
-    local_plotOneDayTimeseries(ax2, T, day27, C);
-    title('Slick Scenarios');
-    ylim([385 565]);
-    grid off
-
-    % --- Panel 4: 29 (Slick) ---
-    ax4 = subplot(2,2,4); hold on; box on;
-    local_plotOneDayTimeseries(ax4, T, day29, C);
-    ylim([385 565]);
-    grid off
-
-% Legend only once
-    legend(ax3, {'Air_{ 100 cm}', 'NSA_{ 20 cm}', 'NSL_{ 20 cm}', 'Sea_{ 100 cm}'}, ...
-        'Location','northeast','FontSize', 8);
-end
-
-% =====================================================================
-% Local helper: plot one day
-% =====================================================================
-function local_plotOneDayTimeseries(ax, T, day0, C)
-
-    d = dateshift(day0,'start','day');
-    idx = T.Time >= d & T.Time < d + days(1);
-
-    tt = T.Time(idx);
-
-    xNSA = T.pCO2_NSA(idx);
-    xATM = T.pCO2_ATM(idx);
-    xNSL = T.pCO2_NSL(idx);
-    xOCN = T.pCO2_OCN_G(idx);
-
-    validAny = ~isnan(xNSA) | ~isnan(xATM) | ~isnan(xNSL) | ~isnan(xOCN);
-    if ~any(validAny)
-        warning('No data found for %s', datestr(day0,'dd mmm yyyy'));
-        return
-    end
-
-    tFirst = min(tt(validAny));
-    tLast  = max(tt(validAny));
-
-    plot(ax, tt, xATM, '-', 'Color', C.ATM, 'LineWidth', 1.0);
-    plot(ax, tt, xNSA, '-', 'Color', C.NSA, 'LineWidth', 1.0);
-    plot(ax, tt, xNSL, '-', 'Color', C.NSL, 'LineWidth', 1.0);
-    plot(ax, tt, xOCN, '-', 'Color', C.OCN, 'LineWidth', 1.0);
-
-    xlim(ax, [tFirst - minutes(30), tLast + minutes(30)]);
-    grid(ax, 'on');
-
-    % ---- X-axis formatting ----
-    ax.XAxis.TickLabelFormat = 'HH:mm';
-    xlabel(ax, datestr(day0,'dd mmmm, yyyy'));
-
-    % Remove MATLAB secondary date label
-    try
-        ax.XAxis.SecondaryLabel.Visible = 'off';
-    catch
-        try
-            ax.XAxis.SecondaryLabel.String = '';
-        catch
+        v = any(isfinite([T.pCO2_ATM(m) T.pCO2_NSA(m) T.pCO2_NSL(m) T.(seaCol)(m)]), 2);
+        if any(v), xlim(ax, [min(tt(v)) - minutes(20), max(tt(v)) + minutes(20)]); end
+        ylim(ax, yl);
+        ax.XAxis.TickLabelFormat = 'HH:mm';
+        try, ax.XAxis.SecondaryLabel.Visible = 'off'; catch, end
+        xlabel(ax, sprintf('%s (%s)', datestr(d0,'dd mmmm yyyy'), S.timeZone));
+        if S.isSlick(i), sc = 'Slick'; else, sc = 'Non-slick'; end
+        title(ax, sprintf('%s) %s', letters(j), sc));
+        if tileOf(j) == 1 || tileOf(j) == 3, ylabel(ax, '{\it p}CO_2 [\muatm]'); end
+        if j == 1
+            legend(ax, [h1 h2 h3 h4], {'Air_{100}','NSA_{20}','NSL_{20}','Sea_{100}'}, ...
+                'Location','northeast','FontSize', 8);
         end
     end
 end
